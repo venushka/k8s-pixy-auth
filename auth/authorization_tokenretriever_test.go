@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -22,18 +23,17 @@ var _ = Describe("CodetokenExchanger", func() {
 			}
 
 			result, err := tokenRetriever.newExchangeCodeRequest(exchangeRequest)
+			result.ParseForm()
 
-			var tokenRequest AuthorizationTokenRequest
-			json.NewDecoder(result.Body).Decode(&tokenRequest)
+			expectedResult := url.Values{}
+			expectedResult.Add("grant_type", "authorization_code")
+			expectedResult.Add("client_id", "clientID")
+			expectedResult.Add("code_verifier", "Verifier")
+			expectedResult.Add("code", "code")
+			expectedResult.Add("redirect_uri", "https://redirect")
 
 			Expect(err).To(BeNil())
-			Expect(tokenRequest).To(Equal(AuthorizationTokenRequest{
-				GrantType:    "authorization_code",
-				ClientID:     "clientID",
-				CodeVerifier: "Verifier",
-				Code:         "code",
-				RedirectURI:  "https://redirect",
-			}))
+			Expect(result.Form).To(Equal(expectedResult))
 			Expect(result.URL.String()).To(Equal("https://issuer/oauth/token"))
 		})
 
@@ -95,16 +95,15 @@ var _ = Describe("CodetokenExchanger", func() {
 			}
 
 			result, err := tokenRetriever.newRefreshTokenRequest(exchangeRequest)
+			result.ParseForm()
 
-			var tokenRequest RefreshTokenRequest
-			json.NewDecoder(result.Body).Decode(&tokenRequest)
+			expectedResult := url.Values{}
+			expectedResult.Add("grant_type", "refresh_token")
+			expectedResult.Add("client_id", "clientID")
+			expectedResult.Add("refresh_token", "refreshToken")
 
 			Expect(err).To(BeNil())
-			Expect(tokenRequest).To(Equal(RefreshTokenRequest{
-				GrantType:    "refresh_token",
-				ClientID:     "clientID",
-				RefreshToken: "refreshToken",
-			}))
+			Expect(result.Form).To(Equal(expectedResult))
 			Expect(result.URL.String()).To(Equal("https://issuer/oauth/token"))
 		})
 

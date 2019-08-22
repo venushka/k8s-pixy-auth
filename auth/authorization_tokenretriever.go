@@ -1,10 +1,11 @@
 package auth
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
+	"strings"
 )
 
 // TokenRetriever implements AuthTokenExchanger in order to facilitate getting
@@ -41,24 +42,6 @@ type RefreshTokenExchangeRequest struct {
 	RefreshToken string
 }
 
-// AuthorizationTokenRequest is the HTTP request used to exchange an
-// authorization code for a token
-type AuthorizationTokenRequest struct {
-	GrantType    string `json:"grant_type"`
-	ClientID     string `json:"client_id"`
-	CodeVerifier string `json:"code_verifier"`
-	Code         string `json:"code"`
-	RedirectURI  string `json:"redirect_uri"`
-}
-
-// RefreshTokenRequest is the HTTP request used to exchange a refresh token for
-// a refreshed token
-type RefreshTokenRequest struct {
-	GrantType    string `json:"grant_type"`
-	ClientID     string `json:"client_id"`
-	RefreshToken string `json:"refresh_token"`
-}
-
 // HTTPAuthTransport abstracts how an HTTP exchange request is sent and received
 type HTTPAuthTransport interface {
 	Do(request *http.Request) (*http.Response, error)
@@ -76,16 +59,14 @@ func NewTokenRetriever(oidcWellKnownEndpoints OIDCWellKnownEndpoints, authTransp
 // newExchangeCodeRequest builds a new AuthTokenRequest wrapped in an
 // http.Request
 func (ce *TokenRetriever) newExchangeCodeRequest(req AuthorizationCodeExchangeRequest) (*http.Request, error) {
-	body := AuthorizationTokenRequest{
-		GrantType:    "authorization_code",
-		ClientID:     req.ClientID,
-		CodeVerifier: req.CodeVerifier,
-		Code:         req.Code,
-		RedirectURI:  req.RedirectURI,
-	}
+	body := url.Values{}
+	body.Add("grant_type", "authorization_code")
+	body.Add("client_id", req.ClientID)
+	body.Add("code_verifier", req.CodeVerifier)
+	body.Add("code", req.Code)
+	body.Add("redirect_uri", req.RedirectURI)
 
-	bodyReader := new(bytes.Buffer)
-	json.NewEncoder(bodyReader).Encode(body)
+	bodyReader := strings.NewReader(body.Encode())
 
 	request, err := http.NewRequest("POST",
 		ce.oidcWellKnownEndpoints.TokenEndpoint,
@@ -95,7 +76,7 @@ func (ce *TokenRetriever) newExchangeCodeRequest(req AuthorizationCodeExchangeRe
 		return nil, err
 	}
 
-	request.Header.Add("Content-Type", "application/json")
+	request.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
 	return request, nil
 }
@@ -103,14 +84,12 @@ func (ce *TokenRetriever) newExchangeCodeRequest(req AuthorizationCodeExchangeRe
 // newRefreshTokenRequest builds a new RefreshTokenRequest wrapped in an
 // http.Request
 func (ce *TokenRetriever) newRefreshTokenRequest(req RefreshTokenExchangeRequest) (*http.Request, error) {
-	body := RefreshTokenRequest{
-		GrantType:    "refresh_token",
-		ClientID:     req.ClientID,
-		RefreshToken: req.RefreshToken,
-	}
+	body := url.Values{}
+	body.Add("grant_type", "refresh_token")
+	body.Add("client_id", req.ClientID)
+	body.Add("refresh_token", req.RefreshToken)
 
-	bodyReader := new(bytes.Buffer)
-	json.NewEncoder(bodyReader).Encode(body)
+	bodyReader := strings.NewReader(body.Encode())
 
 	request, err := http.NewRequest("POST",
 		ce.oidcWellKnownEndpoints.TokenEndpoint,
@@ -120,7 +99,7 @@ func (ce *TokenRetriever) newRefreshTokenRequest(req RefreshTokenExchangeRequest
 		return nil, err
 	}
 
-	request.Header.Add("Content-Type", "application/json")
+	request.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
 	return request, nil
 }
